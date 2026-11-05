@@ -91,3 +91,7 @@ The other end-to-end tests cover:
   keyboard-only journey (Tab order, Enter, the « … » menu).
 
 GitHub Actions runs all of it on every push (`.github/workflows/ci.yml`).
+
+## License
+
+MIT, see [LICENSE](LICENSE). Third-party assets keep their own license (Inter: OFL; Lucide icons: ISC).
