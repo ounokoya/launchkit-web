@@ -15,5 +15,6 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/build ./build
 COPY --from=build /app/server.js ./
 EXPOSE 3000
-USER 1000 # node, numeric so that Kubernetes can check runAsNonRoot
+# node, written as a number so that Kubernetes can check runAsNonRoot.
+USER 1000
 CMD ["node", "server.js"]
