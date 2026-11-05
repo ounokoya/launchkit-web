@@ -1,0 +1,5 @@
+10019	IGNORE	(Content-Type missing: only on 303 redirects without a body)
+10049	IGNORE	(Storable content: public pages may be cached; signed-in pages send Cache-Control: private, no-store)
+10055	IGNORE	(CSP style-src unsafe-inline: needed by Svelte style directives; scripts stay strict, nonce only)
+10111	IGNORE	(Authentication request identified: informational, the sign-in form)
+10202	IGNORE	(Anti-CSRF tokens: SvelteKit checks the Origin of every form submission instead of tokens)

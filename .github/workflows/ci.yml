@@ -1,0 +1,91 @@
+# Web CI (ADR-0009, P3): types, unit tests with coverage ≥ 80 %, the A / B scenario in the browser at
+# 1440 / 768 / 390 px against the real server stack, and security checks (npm audit, Semgrep, OWASP ZAP).
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # Server repository, checked out to run the A / B scenario against the real stack.
+  SERVER_REPO: ${{ github.repository_owner }}/launchkit-server
+
+jobs:
+  unit:
+    name: Types, unit tests, coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run test:coverage
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-coverage
+          path: coverage/
+
+  e2e:
+    name: End to end, accessibility (3 sizes)
+    runs-on: ubuntu-latest
+    needs: unit
+    env:
+      ADMIN_PASSWORD: ci-admin-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.SERVER_REPO }}
+          path: server
+      - name: Start the server stack (API, worker, ArangoDB, Mailpit)
+        run: docker compose -f server/compose.yaml up --build --detach --wait
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci && npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Start the web app
+        run: node server.js &
+        env:
+          PORT: 5173
+          ORIGIN: http://localhost:5173
+          API_URL: http://localhost:5080
+          PUBLIC_MAILPIT_URL: http://localhost:8025
+      - run: npx wait-on http://localhost:5173 && npm run test:e2e
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: captures
+          path: captures/
+      - name: OWASP ZAP baseline
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: http://localhost:5173
+          fail_action: true
+          allow_issue_writing: false
+          rules_file_name: .zap/rules.tsv
+      - if: failure()
+        run: docker compose -f server/compose.yaml logs
+
+  security:
+    name: npm audit, Semgrep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm audit --audit-level=moderate
+      - name: Semgrep
+        run: >-
+          docker run --rm -v "$PWD:/src" semgrep/semgrep semgrep scan --error --metrics off
+          --config p/javascript --config p/typescript --config p/secrets --config p/owasp-top-ten /src/src
